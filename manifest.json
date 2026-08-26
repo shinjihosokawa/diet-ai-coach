@@ -1,21 +1,24 @@
 {
-  "name": "Training AI Coach",
-  "short_name": "AI Coach",
-  "description": "AI選択式トレーニング・食事管理アプリ",
+  "name": "レジ計算機",
+  "short_name": "レジ計算",
+  "description": "店舗の締め作業用レジ計算機 - 現金の枚数を入力して合計金額を自動計算",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0a0a1a",
-  "theme_color": "#0a0a1a",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "./icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "./icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

@@ -1,410 +1,535 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://musclewiki.com https://*.githubusercontent.com https://i.imgur.com; connect-src 'self' https://generativelanguage.googleapis.com https://api.openai.com; font-src 'self'; frame-src https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com;">
-<meta http-equiv="X-Content-Type-Options" content="nosniff">
-<meta name="referrer" content="no-referrer">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="theme-color" content="#0b0e11">
-<title>TRAINING AI</title>
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>レジ計算機</title>
+  <meta name="description" content="店舗の締め作業用レジ計算機 - 現金の枚数を入力して合計金額を自動計算">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="レジ計算機">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="icon" type="image/png" href="./icon-192.png">
+  <style>
+    :root {
+      --bg-black: #000000;
+      --display-bg: #1c1c1e;
+      --row-active: #2c2c2e;
+      --text-white: #ffffff;
+      --text-gray: #8e8e93;
+      --text-orange: #ff9f0a;
+      --btn-num: #333333;
+      --btn-num-active: #555555;
+      --btn-fn: #a5a5a5;
+      --btn-fn-active: #d4d4d2;
+      --btn-fn-text: #000000;
+      --btn-orange: #ff9f0a;
+      --btn-orange-active: #fcc875;
+      --btn-danger: #3a1515;
+      --btn-danger-text: #ff453a;
+      --border-color: #2c2c2e;
+    }
+
+    * {
+      box-sizing: border-box;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--bg-black);
+      color: var(--text-white);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Hiragino Sans", Meiryo, sans-serif;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      background: var(--bg-black);
+    }
+
+    /* ========================================
+       1. 合計金額 ディスプレイ (電卓の画面風)
+    ======================================== */
+    .total-display {
+      flex-shrink: 0;
+      padding: 12px 16px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: flex-end;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-black);
+    }
+
+    .total-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-gray);
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+
+    .total-value-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    .total-number {
+      font-size: 2.2rem;
+      font-weight: 300;
+      color: var(--text-white);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .total-unit {
+      font-size: 1.1rem;
+      font-weight: 400;
+      color: var(--text-orange);
+      white-space: nowrap;
+    }
+
+    /* ========================================
+       2. 金種リスト (スクロール不要・画面フィット)
+    ======================================== */
+    .denom-list {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 4px 10px;
+      gap: 2px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .denom-row {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 72px 1fr 115px;
+      align-items: center;
+      padding: 0 12px;
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+      min-height: 0;
+      border: 1px solid transparent;
+    }
+
+    .denom-row.active {
+      background: var(--row-active);
+      border-color: #3a3a3c;
+    }
+
+    .denom-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-gray);
+      white-space: nowrap;
+    }
+
+    .denom-row.active .denom-label {
+      color: var(--text-white);
+    }
+
+    .denom-count-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      white-space: nowrap;
+    }
+
+    .denom-count {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-white);
+      min-width: 42px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .denom-row.active .denom-count {
+      color: var(--text-orange);
+    }
+
+    .denom-unit {
+      font-size: 0.75rem;
+      color: var(--text-gray);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .denom-subtotal {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #636366;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      line-height: 1;
+    }
+
+    .denom-row.has-value .denom-subtotal {
+      color: var(--text-white);
+    }
+
+    .denom-row.active .denom-subtotal {
+      color: var(--text-orange);
+    }
+
+    /* ========================================
+       3. テンキー (スマホ電卓完全再現)
+    ======================================== */
+    .keypad-container {
+      flex-shrink: 0;
+      padding: 6px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+      background: var(--bg-black);
+    }
+
+    .keypad-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    .btn {
+      border: none;
+      outline: none;
+      border-radius: 50px;
+      font-family: inherit;
+      font-size: 1.5rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      aspect-ratio: 1.35;
+      max-height: 58px;
+    }
+
+    /* 数字ボタン (ダークグレー) */
+    .btn-num {
+      background: var(--btn-num);
+      color: var(--text-white);
+    }
+    .btn-num:active {
+      background: var(--btn-num-active);
+    }
+
+    /* 上部機能ボタン (ライトグレー / 電卓AC風) */
+    .btn-fn {
+      background: var(--btn-fn);
+      color: var(--btn-fn-text);
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+    .btn-fn:active {
+      background: var(--btn-fn-active);
+    }
+
+    /* オレンジボタン (演算子・確定/次へ) */
+    .btn-orange {
+      background: var(--btn-orange);
+      color: var(--text-white);
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+    .btn-orange:active {
+      background: var(--btn-orange-active);
+    }
+
+    /* 0ボタン (横長) */
+    .btn-span-2 {
+      grid-column: span 2;
+      aspect-ratio: auto;
+      border-radius: 50px;
+      padding-left: 24px;
+      justify-content: flex-start;
+    }
+
+    /* 確定・次へボタン (2列スパン) */
+    .btn-enter {
+      grid-column: span 2;
+      aspect-ratio: auto;
+      border-radius: 50px;
+      font-size: 1.1rem;
+    }
+
+    /* 危険ボタン (全消去) */
+    .btn-danger {
+      background: var(--btn-danger);
+      color: var(--btn-danger-text);
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    /* ========================================
+       レスポンシブ (画面の高さ調整)
+    ======================================== */
+    @media (min-height: 720px) {
+      .total-number { font-size: 2.6rem; }
+      .denom-label { font-size: 1.05rem; }
+      .denom-count { font-size: 1.35rem; }
+      .denom-subtotal { font-size: 1.05rem; }
+      .btn { font-size: 1.6rem; max-height: 64px; }
+      .keypad-grid { gap: 10px; }
+    }
+
+    @media (min-height: 800px) {
+      .total-display { padding: 16px 20px 10px; }
+      .total-number { font-size: 3rem; }
+      .denom-list { padding: 6px 12px; gap: 4px; }
+      .denom-row { padding: 0 14px; }
+      .btn { max-height: 70px; font-size: 1.75rem; }
+    }
+
+    /* PC大画面用 (電卓サイズに固定) */
+    .popout-btn {
+      display: none;
+    }
+
+    @media (min-width: 600px) {
+      body {
+        background: #121214;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .app-container {
+        width: 390px;
+        height: 760px;
+        max-height: 94vh;
+        border-radius: 28px;
+        border: 2px solid #2c2c2e;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+        overflow: hidden;
+      }
+      .popout-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: #2c2c2e;
+        color: #8e8e93;
+        border: 1px solid #3a3a3c;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: color 0.15s, background 0.15s;
+      }
+      .popout-btn:hover {
+        background: #3a3a3c;
+        color: #ffffff;
+      }
+    }
+  </style>
 </head>
 <body>
 
-<!-- Sidebar (PC) -->
-<aside class="sidebar">
-  <div class="sidebar-logo">TRAINING AI</div>
-  <nav class="sidebar-nav">
-    <div class="sidebar-link active" data-nav="today" onclick="navTo('today')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>TODAY</div>
-    <div class="sidebar-link" data-nav="graph" onclick="navTo('graph')"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>GRAPH</div>
-    <div class="sidebar-link" data-nav="game" onclick="navTo('game')"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>GAME</div>
-    <div class="sidebar-link" data-nav="history" onclick="navTo('history')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>HISTORY</div>
-    <div class="sidebar-link" data-nav="settings" onclick="navTo('settings')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>SETTINGS</div>
-  </nav>
-</aside>
+  <!-- PC用: 小窓で開くボタン -->
+  <button class="popout-btn" onclick="openPopupWindow()" title="独立した電卓ウィンドウで開く">❐ 小窓で開く</button>
 
-<!-- Topbar (Mobile) -->
-<div class="topbar">
-  <div class="topbar-row">
-    <div class="topbar-title">TRAINING AI <span style="font-size:12px;color:#f0b90b;margin-left:8px;">🔥 <span id="streak-val">0</span>日連続</span></div>
-    <div class="topbar-date" id="topbar-date"></div>
-  </div>
-  <div class="tabs">
-    <div class="tab active" data-nav="today" onclick="navTo('today')">TODAY</div>
-    <div class="tab" data-nav="graph" onclick="navTo('graph')">GRAPH</div>
-    <div class="tab" data-nav="game" onclick="navTo('game')">GAME</div>
-    <div class="tab" data-nav="history" onclick="navTo('history')">HISTORY</div>
-    <div class="tab" data-nav="settings" onclick="navTo('settings')">SETTINGS</div>
-  </div>
-</div>
-
-<!-- ══ TODAY ══ -->
-<div class="page active" data-page="today">
-  <div class="today-grid">
-    <div class="today-left">
-      <!-- Body Metrics -->
-      <div class="section">
-        <div class="card-title">BODY METRICS</div>
-        <div class="metric-grid">
-          <div class="metric-box">
-            <div class="metric-label">Weight</div>
-            <input type="number" class="metric-input" id="inp-weight" placeholder="--" step="0.1">
-            <div class="metric-unit">kg</div>
-            <div class="metric-delta flat" id="delta-weight">--</div>
-          </div>
-          <div class="metric-box">
-            <div class="metric-label">Body Fat</div>
-            <input type="number" class="metric-input" id="inp-fat" placeholder="--" step="0.1">
-            <div class="metric-unit">%</div>
-            <div class="metric-delta flat" id="delta-fat">--</div>
-          </div>
-        </div>
-        <!-- Body Status Meter -->
-        <div class="body-status" id="body-status" style="margin-top:16px; display:none;">
-          <div class="meter-label" style="display:flex; justify-content:space-between; font-size:11px; color:#848e9c; margin-bottom:4px;">
-            <span>BMI: <strong id="bmi-val" style="color:#eaecef; font-size:13px;">--</strong> (<span id="bmi-text">--</span>)</span>
-          </div>
-          <div class="meter-bar" style="position:relative; height:6px; background:linear-gradient(to right, #1890ff 20%, #03c076 40%, #03c076 60%, #f0b90b 80%, #e84142 100%); border-radius:3px; margin-bottom:12px;">
-            <div id="bmi-pointer" style="position:absolute; top:-4px; width:4px; height:14px; background:#fff; border-radius:2px; box-shadow:0 0 4px rgba(0,0,0,0.8); transition: left 0.4s ease; left:0%;"></div>
-          </div>
-          <div class="meter-label" style="display:flex; justify-content:space-between; font-size:11px; color:#848e9c; margin-bottom:4px;">
-            <span>体脂肪レベル: <strong id="fat-val" style="color:#eaecef; font-size:13px;">--</strong>% (<span id="fat-text">--</span>)</span>
-          </div>
-          <div class="meter-bar" style="position:relative; height:6px; background:linear-gradient(to right, #1890ff 20%, #03c076 40%, #03c076 60%, #f0b90b 80%, #e84142 100%); border-radius:3px;">
-            <div id="fat-pointer" style="position:absolute; top:-4px; width:4px; height:14px; background:#fff; border-radius:2px; box-shadow:0 0 4px rgba(0,0,0,0.8); transition: left 0.4s ease; left:0%;"></div>
-          </div>
-          <!-- Goal Progress -->
-          <div style="margin-top:16px;">
-            <div class="meter-label" style="display:flex; justify-content:space-between; font-size:11px; color:#848e9c; margin-bottom:4px;">
-              <span>目標体重まで: あと<strong id="goal-diff" style="color:#eaecef;">--</strong>kg</span>
-              <span id="goal-percent">--%</span>
-            </div>
-            <div class="meter-bar" style="position:relative; height:8px; background:#2b3139; border-radius:4px; overflow:hidden;">
-              <div id="goal-progress-bar" style="width:0%; height:100%; background:linear-gradient(to right, #03c076, #f0b90b); transition:width 0.5s ease;"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ③ Injury Check -->
-      <div class="section">
-        <div class="card-title">⚠️ INJURY CHECK（ケガ・痛みの確認）</div>
-        <div class="injury-toggle">
-          <input type="checkbox" id="injury-has" onchange="toggleInjury()">
-          <label for="injury-has">現在、痛みや違和感がある</label>
-        </div>
-        <div id="injury-parts-area" style="display:none;">
-          <div style="font-size:.68rem;color:#848e9c;margin-bottom:6px;">痛みのある部位を選択してください</div>
-          <div class="injury-parts">
-            <button class="injury-btn" data-injury="shoulder" onclick="toggleInjuryPart('shoulder')">🦴 肩<span class="injury-sub">ローテーターカフ・腱板</span></button>
-            <button class="injury-btn" data-injury="lower_back" onclick="toggleInjuryPart('lower_back')">🦴 腰<span class="injury-sub">腰椎・脊柱起立筋</span></button>
-            <button class="injury-btn" data-injury="knee" onclick="toggleInjuryPart('knee')">🦴 膝<span class="injury-sub">膝蓋腱・側副靭帯</span></button>
-            <button class="injury-btn" data-injury="elbow" onclick="toggleInjuryPart('elbow')">🦴 肘<span class="injury-sub">内側上顆・外側上顆</span></button>
-            <button class="injury-btn" data-injury="wrist" onclick="toggleInjuryPart('wrist')">🦴 手首<span class="injury-sub">TFCC・腱鞘</span></button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Steps -->
-      <div class="section">
-        <div class="card-title">STEPS</div>
-        <div class="field"><input type="number" id="inp-steps" placeholder="0"></div>
-      </div>
-
-      <!-- Meal -->
-      <div class="section">
-        <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
-          <span>MEAL</span>
-          <div>
-            <input type="file" id="ai-image-input" accept="image/*" style="display:none" onchange="handleAIImage(event)">
-            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ai-image-input').click()">📷 写真から入力</button>
-          </div>
-        </div>
-        <div id="ai-image-name" style="font-size:11px; color:#03c076; margin-bottom:8px;"></div>
-        <div class="meal-tabs">
-          <div class="meal-tab active" data-meal="breakfast">朝</div>
-          <div class="meal-tab" data-meal="lunch">昼</div>
-          <div class="meal-tab" data-meal="dinner">夜</div>
-          <div class="meal-tab" data-meal="snack">間食</div>
-        </div>
-        <div class="field"><label>FOOD</label><textarea id="meal-food" rows="2" placeholder="例: 鶏むね弁当、サラダ"></textarea></div>
-        <div class="input-row-3">
-          <div class="field"><label>P (g)</label><input type="number" id="meal-p" placeholder="0"></div>
-          <div class="field"><label>F (g)</label><input type="number" id="meal-f" placeholder="0"></div>
-          <div class="field"><label>C (g)</label><input type="number" id="meal-c" placeholder="0"></div>
-        </div>
-      </div>
-
-      <!-- ④ Protein & Supplements -->
-      <div class="section">
-        <div class="card-title">💊 PROTEIN & SUPPLEMENTS</div>
-        <div class="input-row-3">
-          <div class="field"><label>P (g)</label><input type="number" id="inp-sup-p" placeholder="0"></div>
-          <div class="field"><label>F (g)</label><input type="number" id="inp-sup-f" placeholder="0"></div>
-          <div class="field"><label>C (g)</label><input type="number" id="inp-sup-c" placeholder="0"></div>
-        </div>
-        <div class="field" style="margin-top:8px"><label>メモ</label><input type="text" id="inp-supplement" placeholder="例: ホエイプロテイン, BCAA, クレアチン"></div>
-      </div>
-
-      <!-- PFC -->
-      <div class="section" id="pfc-section">
-        <div class="card-title">DAILY TARGET & PFC</div>
-        <div style="font-size:11px; color:#848e9c; margin-bottom:8px;" id="tdee-note">目標カロリー: -- kcal</div>
-        <div class="pfc-totals">
-          <div class="pfc-box p"><div class="val" id="pfc-p-val">0g</div><div class="lbl" id="tgt-p">/ -- g</div></div>
-          <div class="pfc-box f"><div class="val" id="pfc-f-val">0g</div><div class="lbl" id="tgt-f">/ -- g</div></div>
-          <div class="pfc-box c"><div class="val" id="pfc-c-val">0g</div><div class="lbl" id="tgt-c">/ -- g</div></div>
-        </div>
-        <div class="pfc-bar">
-          <div class="pfc-p" id="pfc-bar-p" style="width:0"></div>
-          <div class="pfc-f" id="pfc-bar-f" style="width:0"></div>
-          <div class="pfc-c" id="pfc-bar-c" style="width:0"></div>
-        </div>
-        <div class="pfc-legend">
-          <span><i class="dot dot-p"></i>P <span style="font-size:10px;color:#848e9c;font-weight:normal;">(タンパク質)</span></span>
-          <span><i class="dot dot-f"></i>F <span style="font-size:10px;color:#848e9c;font-weight:normal;">(脂質)</span></span>
-          <span><i class="dot dot-c"></i>C <span style="font-size:10px;color:#848e9c;font-weight:normal;">(炭水化物)</span></span>
-        </div>
-        <div class="pfc-note" id="pfc-note"></div>
+  <div class="app-container">
+    <!-- 1. 合計金額 ディスプレイ -->
+    <div class="total-display">
+      <div class="total-label">合計金額</div>
+      <div class="total-value-wrap">
+        <span class="total-number" id="grandTotal">0</span>
+        <span class="total-unit">円</span>
       </div>
     </div>
-    <div class="today-right">
 
-      <!-- ⑧ Recovery Status -->
-      <div class="section">
-        <div class="card-title">💪 RECOVERY STATUS（超回復モニター）</div>
-        <div class="recovery-grid" id="recovery-grid"></div>
-      </div>
+    <!-- 2. 金種リスト -->
+    <div class="denom-list" id="denomList"></div>
 
-      <!-- ② User Training Level -->
-      <div class="section">
-        <div class="card-title">🏆 TRAINING LEVEL</div>
-        <div class="user-level-bar">
-          <div class="ulb-lv">Lv.<span id="user-lv">1</span></div>
-          <div class="ulb-bar"><div class="ulb-fill" id="user-lv-bar" style="width:0%"></div></div>
-          <div class="ulb-exp"><span id="user-exp">0</span>/100 EXP</div>
-        </div>
-      </div>
+    <!-- 3. 電卓風 テンキーパッド -->
+    <div class="keypad-container">
+      <div class="keypad-grid">
+        <!-- 1行目: 機能キー -->
+        <button class="btn btn-fn" onclick="pressClearCurrent()">C</button>
+        <button class="btn btn-fn" onclick="pressBackspace()">⌫</button>
+        <button class="btn btn-danger" onclick="pressResetAll()">全消去</button>
+        <button class="btn btn-orange" onclick="pressPrev()">↑</button>
 
-      <!-- AI Training -->
-      <div class="section">
-        <div class="card-title">TRAINING MENU (AI)</div>
-        <div class="train-list" id="train-list"></div>
-        <div class="train-add">
-          <input type="text" id="train-add-input" placeholder="追加トレーニング">
-          <button class="btn btn-ghost btn-sm" onclick="addTrainItem()">+</button>
-        </div>
-        <div class="field" style="margin-top:10px">
-          <label>EXTRA NOTE</label>
-          <textarea id="inp-extra-training" rows="2" placeholder="自由メモ"></textarea>
-        </div>
-      </div>
-      <!-- AI Paste -->
-      <div class="section">
-        <div class="card-title">AI RESPONSE</div>
-        <div class="ai-paste">
-          <textarea id="ai-response" rows="5" placeholder="「SEND TO AI」を押すと自動で取得します..."></textarea>
-        </div>
-        <button class="btn btn-ghost btn-sm" style="margin-top:6px; display:none;" id="btn-parse" onclick="parseAIResponse()">PARSE</button>
-        <div class="ai-advice" id="ai-advice" style="display:none"></div>
-      </div>
-      <div class="section">
-        <div class="card-title" style="display:flex; justify-content:space-between; align-items:flex-end;">
-          <span>AI COACH</span>
-          <span style="color:#1890ff; font-size:12px; font-weight:normal; text-transform:none;">Lv.<strong id="coach-lv" style="font-size:14px;">1</strong> (<span id="coach-exp">0</span>/100 EXP)</span>
-        </div>
-        
-        <div style="font-size:11px; color:#848e9c; margin-bottom:8px;">明日使えるトレーニング器具（タップで選択）</div>
-        <div class="equip-grid" style="margin-bottom:16px;">
-          <button class="equip-btn active" data-equip="bodyweight">自重</button>
-          <button class="equip-btn active" data-equip="dumbbells">ダンベル</button>
-          <button class="equip-btn active" data-equip="pullup">懸垂機</button>
-          <button class="equip-btn" data-equip="barbell">バーベル</button>
-          <button class="equip-btn" data-equip="bench">ベンチ</button>
-          <button class="equip-btn" data-equip="bands">チューブ</button>
-        </div>
+        <!-- 2行目: 7, 8, 9, ↓ -->
+        <button class="btn btn-num" onclick="pressNum('7')">7</button>
+        <button class="btn btn-num" onclick="pressNum('8')">8</button>
+        <button class="btn btn-num" onclick="pressNum('9')">9</button>
+        <button class="btn btn-orange" onclick="pressNext()">↓</button>
 
-        <div class="ai-chips">
-          <div class="ai-chip" data-ai="chatgpt">ChatGPT</div>
-          <div class="ai-chip" data-ai="gemini">Gemini</div>
-          <div class="ai-chip" data-ai="claude">Claude</div>
-        </div>
-        <button class="btn" id="btn-save-send" onclick="saveAndSendAI()" style="background:linear-gradient(45deg, #f0b90b, #1890ff); color:#fff; font-size:16px; margin-top:16px; width:100%; font-weight:bold; box-shadow:0 4px 15px rgba(240, 185, 11, 0.3);">
-          SAVE & SEND TO AI
-        </button>
+        <!-- 3行目: 4, 5, 6, 00 -->
+        <button class="btn btn-num" onclick="pressNum('4')">4</button>
+        <button class="btn btn-num" onclick="pressNum('5')">5</button>
+        <button class="btn btn-num" onclick="pressNum('6')">6</button>
+        <button class="btn btn-num" onclick="pressNum('00')">00</button>
+
+        <!-- 4行目: 1, 2, 3, 0 -->
+        <button class="btn btn-num" onclick="pressNum('1')">1</button>
+        <button class="btn btn-num" onclick="pressNum('2')">2</button>
+        <button class="btn btn-num" onclick="pressNum('3')">3</button>
+        <button class="btn btn-num" onclick="pressNum('0')">0</button>
+
+        <!-- 5行目: 確定 / 次へ (ワイドボタン) -->
+        <button class="btn btn-orange btn-enter" style="grid-column: span 4;" onclick="pressNext()">確定 / 次へ ↵</button>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ══ GRAPH ══ -->
-<div class="page" data-page="graph">
-  <div class="period-row">
-    <button class="period-btn active" data-period="7">7D</button>
-    <button class="period-btn" data-period="14">14D</button>
-    <button class="period-btn" data-period="30">30D</button>
-    <button class="period-btn" data-period="90">90D</button>
-  </div>
-  <div class="card-title">WEIGHT (kg)</div>
-  <div id="chart-weight" style="margin-bottom:16px"></div>
-  <div class="card-title">BODY FAT (%)</div>
-  <div id="chart-fat" style="margin-bottom:16px"></div>
-  <div class="card-title">STEPS</div>
-  <div id="chart-steps" style="margin-bottom:16px"></div>
-</div>
+  <script>
+    const denominations = [
+      { id: 'm10k', label: '1万円札', value: 10000 },
+      { id: 'm5k',  label: '5千円札', value: 5000 },
+      { id: 'm2k',  label: '2千円札', value: 2000 },
+      { id: 'm1k',  label: '千円札',  value: 1000 },
+      { id: 'c500', label: '500円玉', value: 500 },
+      { id: 'c100', label: '100円玉', value: 100 },
+      { id: 'c50',  label: '50円玉',  value: 50 },
+      { id: 'c10',  label: '10円玉',  value: 10 },
+      { id: 'c5',   label: '5円玉',   value: 5 },
+      { id: 'c1',   label: '1円玉',   value: 1 }
+    ];
 
-<!-- ══ GAME ══ -->
-<div class="page" data-page="game">
-  <!-- Boss Area -->
-  <div class="section" style="text-align:center; padding:24px 16px;">
-    <div style="font-size:12px; color:#f0b90b; margin-bottom:8px; font-weight:bold;">STAGE <span id="boss-lv">1</span></div>
-    <div id="boss-emoji" style="font-size:64px; margin-bottom:16px; text-shadow:0 0 20px rgba(232,65,66,0.5);">👹</div>
-    <div style="font-size:14px; color:#eaecef; margin-bottom:8px; font-weight:bold;" id="boss-name">暴食の魔王</div>
-    
-    <div style="display:flex; justify-content:space-between; font-size:12px; color:#848e9c; margin-bottom:4px; max-width:300px; margin-left:auto; margin-right:auto;">
-      <span>HP</span>
-      <span id="boss-hp-text">1000 / 1000</span>
-    </div>
-    <div class="meter-bar" style="position:relative; height:16px; background:#2b3139; border-radius:8px; overflow:hidden; max-width:300px; margin:0 auto 16px auto; border:2px solid #1e2329;">
-      <div id="boss-hp-bar" style="width:100%; height:100%; background:linear-gradient(to right, #e84142, #f0b90b); transition:width 0.5s ease;"></div>
-    </div>
-    <div style="font-size:11px; color:#848e9c; line-height:1.4;">
-      「TODAY」で毎日の記録をSAVEすると<br>達成度に応じてボスにダメージを与えます！
-    </div>
-  </div>
+    const counts = {};
+    denominations.forEach(d => counts[d.id] = '');
+    let activeIndex = 0;
 
-  <!-- Gacha Area -->
-  <div class="section" style="text-align:center;">
-    <div class="card-title">REWARD GACHA</div>
-    <div style="font-size:24px; color:#f0b90b; font-weight:bold; margin-bottom:16px;">🪙 <span id="coin-val">0</span> COINS</div>
-    <button class="btn" id="btn-gacha" onclick="rollGacha()" style="max-width:200px; margin:0 auto; background:linear-gradient(45deg, #f0b90b, #d8a000);">
-      ガチャを回す (50コイン)
-    </button>
-    <div style="font-size:11px; color:#848e9c; margin-top:12px;">ボスを倒すとコインがもらえます。<br>ご褒美の「食べ物（チート券）」を狙おう！</div>
-  </div>
+    function init() {
+      const list = document.getElementById('denomList');
+      denominations.forEach((d, i) => {
+        const row = document.createElement('div');
+        row.className = 'denom-row' + (i === 0 ? ' active' : '');
+        row.id = 'row-' + i;
+        row.onclick = () => setActiveRow(i);
+        row.innerHTML =
+          '<div class="denom-label">' + d.label + '</div>' +
+          '<div class="denom-count-wrap">' +
+            '<span class="denom-count" id="count-' + d.id + '">0</span>' +
+            '<span class="denom-unit">枚</span>' +
+          '</div>' +
+          '<div class="denom-subtotal" id="sub-' + d.id + '">0 円</div>';
+        list.appendChild(row);
+      });
+      updateUI();
+    }
 
-  <!-- Inventory -->
-  <div class="section">
-    <div class="card-title">INVENTORY (獲得したご褒美)</div>
-    <div id="inventory-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
-  </div>
-</div>
+    function setActiveRow(i) {
+      if (i < 0 || i >= denominations.length) return;
+      document.getElementById('row-' + activeIndex).classList.remove('active');
+      activeIndex = i;
+      document.getElementById('row-' + i).classList.add('active');
+    }
 
-<!-- ══ HISTORY ══ -->
-<div class="page" data-page="history">
-  <div class="card-title" style="margin-bottom:16px;">PAST RECORDS</div>
-  <div id="history-list"></div>
-</div>
+    function pressNum(s) {
+      const id = denominations[activeIndex].id;
+      let cur = counts[id];
+      if (cur === '' && (s === '0' || s === '00')) return;
+      if ((cur + s).length > 4) return;
+      counts[id] = cur + s;
+      updateUI();
+    }
 
-<!-- ══ SETTINGS ══ -->
-<div class="page" data-page="settings">
-  <div class="setting-group">
-    <div class="setting-group-title">PROFILE</div>
-    <div class="card">
-      <div class="input-row" style="margin-bottom:10px">
-        <div class="field"><label>GENDER</label>
-          <select id="set-gender" style="width:100%; padding:8px; border-radius:4px; border:1px solid #2b3139; background:#0b0e11; color:#eaecef;">
-            <option value="male">男性</option>
-            <option value="female">女性</option>
-          </select>
-        </div>
-        <div class="field"><label>AGE</label><input type="number" id="set-age" placeholder="--"></div>
-      </div>
-      <div class="input-row">
-        <div class="field"><label>HEIGHT (cm)</label><input type="number" id="set-height" placeholder="--"></div>
-        <div class="field"><label>なりたい体型</label>
-          <select id="set-body-type" style="width:100%; padding:8px; border-radius:4px; border:1px solid #2b3139; background:#0b0e11; color:#eaecef;">
-            <option value="slim">スリム・引き締め</option>
-            <option value="lean">細マッチョ</option>
-            <option value="muscular">マッチョ</option>
-            <option value="healthy" selected>健康的・ナチュラル</option>
-            <option value="athlete">アスリート</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="setting-group">
-    <div class="setting-group-title">お悩み・気になる箇所</div>
-    <div class="card">
-      <div class="field">
-        <textarea id="set-concerns" rows="2" placeholder="例: お腹周りの脂肪が気になる、肩こりがひどい" style="width:100%; padding:8px; border-radius:4px; border:1px solid #2b3139; background:#0b0e11; color:#eaecef; resize:vertical;"></textarea>
-      </div>
-    </div>
-  </div>
-  <div class="setting-group">
-    <div class="setting-group-title">ACTIVITY</div>
-    <div class="card"><div class="field"><select id="set-activity">
-      <option value="low">低 (デスクワーク)</option>
-      <option value="moderate" selected>中 (週3-4運動)</option>
-      <option value="high">高 (週5-6運動)</option>
-    </select></div></div>
-  </div>
-  <div class="setting-group">
-    <div class="setting-group-title">AI INTEGRATION (API KEY)</div>
-    <div class="card">
-      <div class="field" style="margin-bottom:10px">
-        <label>GEMINI API KEY (無料枠あり)</label>
-        <input type="password" id="set-gemini-key" placeholder="Google AI Studioで取得">
-      </div>
-      <div class="field">
-        <label>OPENAI API KEY (ChatGPT用)</label>
-        <input type="password" id="set-openai-key" placeholder="sk-...">
-      </div>
-      <div style="font-size:11px;color:#5e6673;margin-top:6px;line-height:1.4;">
-        ※キーはブラウザにのみ保存されます。GitHubに公開しても安全です。
-      </div>
-    </div>
-  </div>
-  <div class="setting-group">
-    <div class="setting-group-title">DATA MANAGEMENT</div>
-    <div class="card">
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="exportData()">バックアップ保存</button>
-        <button class="btn btn-ghost" onclick="document.getElementById('import-file').click()">データ復元</button>
-        <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(event)">
-      </div>
-      <div style="font-size:11px;color:#5e6673;margin-top:6px;line-height:1.4;">
-        ※定期的にバックアップを保存することをおすすめします。復元時は上書きされます。
-      </div>
-    </div>
-  </div>
-  <div class="setting-group">
-    <div class="setting-group-title">SYSTEM</div>
-    <div class="card">
-      <button class="btn btn-ghost" onclick="forceUpdateApp()" style="color:#e84142; border-color:#e84142;">🔄 アプリを最新状態に強制更新（キャッシュクリア）</button>
-      <div style="font-size:11px;color:#5e6673;margin-top:6px;line-height:1.4;">
-        ※GitHubでプログラムを更新したのにスマホの画面が変わらない場合、このボタンを押すと古い記憶を破棄して最新版を読み込みます。
-      </div>
-    </div>
-  </div>
-</div>
+    function pressBackspace() {
+      const id = denominations[activeIndex].id;
+      if (!counts[id].length) return;
+      counts[id] = counts[id].slice(0, -1);
+      updateUI();
+    }
 
-<!-- Bottom Nav (Mobile) -->
-<nav class="bottom-nav">
-  <div class="nav-item active" data-nav="today" onclick="navTo('today')">
-    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>TODAY
-  </div>
-  <div class="nav-item" data-nav="graph" onclick="navTo('graph')">
-    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>GRAPH
-  </div>
-  <div class="nav-item" data-nav="game" onclick="navTo('game')">
-    <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>GAME
-  </div>
-  <div class="nav-item" data-nav="history" onclick="navTo('history')">
-    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>HISTORY
-  </div>
-  <div class="nav-item" data-nav="settings" onclick="navTo('settings')">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>SETTINGS
-  </div>
-</nav>
+    function pressClearCurrent() {
+      counts[denominations[activeIndex].id] = '';
+      updateUI();
+    }
 
-<div class="toast" id="toast"></div>
-<script src="app.js"></script>
+    function pressResetAll() {
+      if (confirm('すべての入力値をクリアしますか？')) {
+        denominations.forEach(d => counts[d.id] = '');
+        setActiveRow(0);
+        updateUI();
+      }
+    }
+
+    function pressNext() {
+      if (activeIndex < denominations.length - 1) {
+        setActiveRow(activeIndex + 1);
+      }
+    }
+
+    function pressPrev() {
+      if (activeIndex > 0) {
+        setActiveRow(activeIndex - 1);
+      }
+    }
+
+    function updateUI() {
+      let total = 0;
+      denominations.forEach((d, i) => {
+        const n = counts[d.id] === '' ? 0 : parseInt(counts[d.id], 10);
+        const sub = n * d.value;
+        total += sub;
+        document.getElementById('count-' + d.id).innerText = counts[d.id] || '0';
+        document.getElementById('sub-' + d.id).innerText = sub.toLocaleString() + ' 円';
+        const row = document.getElementById('row-' + i);
+        row.classList.toggle('has-value', n > 0);
+      });
+
+      document.getElementById('grandTotal').innerText = total.toLocaleString();
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key >= '0' && e.key <= '9') { e.preventDefault(); pressNum(e.key); }
+      else if (e.key === 'Enter') { e.preventDefault(); pressNext(); }
+      else if (e.key === 'Backspace') { e.preventDefault(); pressBackspace(); }
+      else if (e.key === 'Escape') { e.preventDefault(); pressClearCurrent(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); pressNext(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); pressPrev(); }
+      else if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey) { e.preventDefault(); pressClearCurrent(); }
+    });
+
+    function openPopupWindow() {
+      const w = 410;
+      const h = 780;
+      const left = (window.screen.width - w) / 2;
+      const top = (window.screen.height - h) / 2;
+      window.open(window.location.href, 'regi_calc_win', `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes`);
+    }
+
+    document.addEventListener('touchend', (e) => {
+      if (e.target.closest('.btn')) e.preventDefault();
+    }, { passive: false });
+
+    // PWA Service Worker 登録
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => {
+          console.log('SW registration failed:', err);
+        });
+      });
+    }
+
+    init();
+  </script>
 </body>
 </html>
